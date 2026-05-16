@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 import streamlit as st
 
 from chat_client import get_api_key, run_turn, stream_turn
@@ -41,7 +43,7 @@ def render_chat_page(
     section: str,
     headline: str,
     blurb: str,
-    next_page: str | None = None,
+    next_page: Optional[str] = None,
     next_label: str = "Continue",
 ) -> None:
     apply_global_styles()
@@ -85,7 +87,7 @@ def render_chat_page(
 
     if next_page:
         st.divider()
-        if st.button(next_label, type="primary", use_container_width=True, key=f"next_{section}"):
+        if st.button(next_label, type="primary", key=f"next_{section}"):
             st.switch_page(next_page)
 
     if user_text := st.chat_input("Type your reply…"):

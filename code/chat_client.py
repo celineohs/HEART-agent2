@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Optional
 
 import anthropic
 import streamlit as st
@@ -38,7 +38,7 @@ def run_turn(
     *,
     system: str,
     messages: list[dict[str, Any]],
-    model: str | None = None,
+    model: Optional[str] = None,
     max_tokens: int = 2048,
 ) -> str:
     """Single non-streaming completion; returns assistant text."""
@@ -61,7 +61,7 @@ def stream_turn(
     *,
     system: str,
     messages: list[dict[str, Any]],
-    model: str | None = None,
+    model: Optional[str] = None,
     max_tokens: int = 2048,
 ):
     """Yield text chunks for st.write_stream."""
