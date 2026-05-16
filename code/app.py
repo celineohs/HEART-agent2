@@ -4,55 +4,73 @@ st.set_page_config(
     page_title="HEART · Intake",
     page_icon="💬",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
+
+from ui_style import apply_global_styles
+
+apply_global_styles()
+
+# Minimum response length so “continue” only works with real answers (not one word / whitespace).
+INTAKE_MIN_LEN_Q1 = 40
+INTAKE_MIN_LEN_Q2 = 8
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
 st.title("HEART qualitative interview (pilot)")
 st.markdown(
-    """
-This study explores **one recent interpersonal conflict** you experienced. Everything here is in **English**.
-
-The interview has three short chat sections—**Event**, **Emotion**, and **Thoughts**—after this page.
-Your answers are **not** counseling and **not** an evaluation; we are listening to **your account** in your own words.
-
-Please avoid including real names or identifying details; use roles (e.g. “my supervisor,” “a friend”) instead.
-    """
+    "Briefly tell us about **one recent interpersonal conflict** and **who the other person is** to you."
 )
 
-with st.sidebar:
-    st.markdown("### Sections")
-    st.page_link("app.py", label="Home · Intake")
+nav_cols = st.columns([1, 1, 1, 1, 1.1])
+with nav_cols[0]:
+    st.page_link("app.py", label="Home")
+with nav_cols[1]:
     st.page_link("pages/1_Event.py", label="Event")
+with nav_cols[2]:
     st.page_link("pages/2_Emotion.py", label="Emotion")
+with nav_cols[3]:
     st.page_link("pages/3_Thoughts.py", label="Thoughts")
-    st.divider()
-    if st.button("Clear conversation & intake (reset study session)", type="secondary"):
+with nav_cols[4]:
+    if st.button("Reset session", type="secondary"):
         for k in list(st.session_state.keys()):
             del st.session_state[k]
         st.rerun()
+
+st.divider()
 
 with st.form("intake_form"):
     st.subheader("Background (free text)")
     q1 = st.text_area(
         "(1) Briefly describe an interpersonal conflict you've had with someone close to you recently.",
-        height=140,
+        height=160,
         value=st.session_state.get("brief_conflict", ""),
         placeholder="A short factual description in your own words is enough.",
     )
     q2 = st.text_area(
         "(2) What is your relationship to the other person?",
-        height=100,
+        height=110,
         value=st.session_state.get("relationship_type", ""),
         placeholder="e.g. partner, flatmate, colleague, friend, family member …",
     )
     submitted = st.form_submit_button("Save and continue to Event")
     if submitted:
-        if not (q1 or "").strip() or not (q2 or "").strip():
-            st.error("Please answer both questions before continuing.")
+        t1 = (q1 or "").strip()
+        t2 = (q2 or "").strip()
+        problems = []
+        if len(t1) < INTAKE_MIN_LEN_Q1:
+            problems.append(
+                f"Please write a bit more for **(1)** (at least {INTAKE_MIN_LEN_Q1} characters)."
+            )
+        if len(t2) < INTAKE_MIN_LEN_Q2:
+            problems.append(
+                f"Please write a bit more for **(2)** (at least {INTAKE_MIN_LEN_Q2} characters)."
+            )
+        if problems:
+            for p in problems:
+                st.error(p)
         else:
-            st.session_state["brief_conflict"] = q1.strip()
-            st.session_state["relationship_type"] = q2.strip()
+            st.session_state["brief_conflict"] = t1
+            st.session_state["relationship_type"] = t2
             st.switch_page("pages/1_Event.py")

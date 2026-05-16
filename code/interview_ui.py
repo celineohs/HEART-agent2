@@ -6,20 +6,26 @@ import streamlit as st
 
 from chat_client import get_api_key, run_turn, stream_turn
 from prompts import build_system
+from ui_style import apply_global_styles
 
 
-def _sidebar_nav() -> None:
-    with st.sidebar:
-        st.markdown("### Sections")
-        st.page_link("app.py", label="Home · Intake")
+def _top_nav() -> None:
+    apply_global_styles()
+    c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1.1])
+    with c1:
+        st.page_link("app.py", label="Home")
+    with c2:
         st.page_link("pages/1_Event.py", label="Event")
+    with c3:
         st.page_link("pages/2_Emotion.py", label="Emotion")
+    with c4:
         st.page_link("pages/3_Thoughts.py", label="Thoughts")
-        st.divider()
-        if st.button("Clear conversation & intake (reset study session)", type="secondary"):
+    with c5:
+        if st.button("Reset session", type="secondary", key="nav_reset_session"):
             for k in list(st.session_state.keys()):
                 del st.session_state[k]
             st.rerun()
+    st.divider()
 
 
 def _require_intake() -> None:
@@ -55,7 +61,7 @@ def render_chat_page(
     headline: str,
     blurb: str,
 ) -> None:
-    _sidebar_nav()
+    _top_nav()
     _require_intake()
 
     if not get_api_key():
