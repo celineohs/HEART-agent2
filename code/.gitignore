@@ -4,5 +4,3 @@ __pycache__/
 .venv/
 venv/
 
-# Probe text is inlined in prompts.py for the running app; JS copies stay local only.
-*.js
