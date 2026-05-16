@@ -23,21 +23,6 @@ st.markdown(
     "Briefly tell us about **one recent interpersonal conflict** and **who the other person is** to you."
 )
 
-nav_cols = st.columns([1, 1, 1, 1, 1.1])
-with nav_cols[0]:
-    st.page_link("app.py", label="Home")
-with nav_cols[1]:
-    st.page_link("pages/1_Event.py", label="Event")
-with nav_cols[2]:
-    st.page_link("pages/2_Emotion.py", label="Emotion")
-with nav_cols[3]:
-    st.page_link("pages/3_Thoughts.py", label="Thoughts")
-with nav_cols[4]:
-    if st.button("Reset session", type="secondary"):
-        for k in list(st.session_state.keys()):
-            del st.session_state[k]
-        st.rerun()
-
 st.divider()
 
 with st.form("intake_form"):
@@ -54,7 +39,7 @@ with st.form("intake_form"):
         value=st.session_state.get("relationship_type", ""),
         placeholder="e.g. partner, flatmate, colleague, friend, family member …",
     )
-    submitted = st.form_submit_button("Save and continue to Event")
+    submitted = st.form_submit_button("Continue")
     if submitted:
         t1 = (q1 or "").strip()
         t2 = (q2 or "").strip()
