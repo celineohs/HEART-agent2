@@ -8,6 +8,7 @@ import streamlit as st
 
 from chat_client import get_api_key, run_turn, stream_turn
 from prompts import build_system
+from interview_export import upload_interview_once
 from section_readiness import assess_section_readiness
 from ui_style import apply_global_styles
 
@@ -153,6 +154,8 @@ def render_chat_page(
                 _mark_next_section_start(next_meta[1])
             if section == "thoughts":
                 st.session_state["_interview_completed"] = True
+                with st.spinner("Saving your interview…"):
+                    upload_interview_once()
             st.switch_page(next_page)
 
     if user_text := st.chat_input("Type your reply…"):

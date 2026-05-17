@@ -7,9 +7,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+from interview_export import ensure_session_id
 from ui_style import apply_global_styles
 
 apply_global_styles()
+ensure_session_id()
 
 # Minimum response length so “continue” only works with real answers (not one word / whitespace).
 INTAKE_MIN_LEN_Q1 = 40
