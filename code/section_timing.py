@@ -43,5 +43,11 @@ def section_chat_allowed(section: str) -> bool:
     return not section_max_reached(section)
 
 
-def section_progress(section: str) -> float:
-    return min(1.0, section_elapsed_sec(section) / SECTION_MAX_DURATION_SEC)
+def format_mmss(seconds: float) -> str:
+    total = max(0, int(seconds))
+    minutes, secs = divmod(total, 60)
+    return f"{minutes}:{secs:02d}"
+
+
+def section_remaining_max_sec(section: str) -> int:
+    return max(0, int(SECTION_MAX_DURATION_SEC - section_elapsed_sec(section)))

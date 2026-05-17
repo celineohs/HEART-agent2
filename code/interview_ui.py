@@ -13,11 +13,12 @@ from interview_export import upload_interview_once
 from section_readiness import assess_section_readiness
 from section_timing import (
     ensure_section_clock,
+    format_mmss,
     section_can_continue,
     section_chat_allowed,
     section_max_reached,
     section_min_met,
-    section_progress,
+    section_remaining_max_sec,
 )
 from ui_style import apply_global_styles
 
@@ -45,6 +46,14 @@ def _section_messages(section: str) -> list:
     return st.session_state["messages"][start:]
 
 
+def _render_intake_summary() -> None:
+    with st.expander("What you shared at the start", expanded=True):
+        st.markdown("**(1) Brief description of the recent interpersonal conflict**")
+        st.markdown(st.session_state["brief_conflict"])
+        st.markdown("**(2) Relationship to the other person**")
+        st.markdown(st.session_state["relationship_type"])
+
+
 def _timer_phase(section: str) -> str:
     if section_max_reached(section):
         return "max"
@@ -56,14 +65,12 @@ def _timer_phase(section: str) -> str:
 def _render_section_timer(section: str) -> None:
     """Show a light progress indicator and rerun when min/max boundaries are crossed."""
 
-    @st.fragment(run_every=timedelta(seconds=5))
+    @st.fragment(run_every=timedelta(seconds=1))
     def _tick() -> None:
         ensure_section_clock(section)
         if not section_max_reached(section):
-            st.progress(
-                section_progress(section),
-                text="This part of the interview",
-            )
+            remaining = format_mmss(section_remaining_max_sec(section))
+            st.caption(f"**{remaining}** remaining in this part")
             if section_min_met(section):
                 st.caption(
                     "When you feel ready, you can move on to the next part using **Continue** below."
@@ -186,6 +193,7 @@ def render_chat_page(
     if blurb:
         st.markdown(blurb)
 
+    _render_intake_summary()
     _render_section_timer(section)
 
     for msg in st.session_state["messages"]:
