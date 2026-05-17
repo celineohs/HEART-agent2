@@ -55,8 +55,8 @@ def _interview_bottom():
 def _continue_availability_caption(next_label: str) -> str:
     mins = SECTION_MIN_DURATION_SEC // 60
     return (
-        f"**{next_label}** is available **only after** at least **{mins} minutes** in this part. "
-        f"**Please press {next_label} only after** you have shared enough in your answers."
+        f"**{next_label}** is available after **at least {mins} minutes** in this part. "
+        f"Please press {next_label} **only after you have shared enough in your answers.**"
     )
 
 
