@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import time
-from typing import Optional
-
 import streamlit as st
 
 SECTION_MIN_DURATION_SEC = 3 * 60
@@ -45,16 +43,5 @@ def section_chat_allowed(section: str) -> bool:
     return not section_max_reached(section)
 
 
-def format_time_hint(section: str) -> Optional[str]:
-    elapsed = section_elapsed_sec(section)
-    if section_max_reached(section):
-        return None
-    if not section_min_met(section):
-        remaining = int(SECTION_MIN_DURATION_SEC - elapsed)
-        mins = max(1, (remaining + 59) // 60)
-        return f"**Continue** unlocks in about {mins} min (minimum {SECTION_MIN_DURATION_SEC // 60} min per section)."
-    remaining = int(SECTION_MAX_DURATION_SEC - elapsed)
-    if remaining <= 60:
-        return "About 1 min left in this section."
-    mins = max(1, (remaining + 59) // 60)
-    return f"About {mins} min left in this section (max {SECTION_MAX_DURATION_SEC // 60} min)."
+def section_progress(section: str) -> float:
+    return min(1.0, section_elapsed_sec(section) / SECTION_MAX_DURATION_SEC)

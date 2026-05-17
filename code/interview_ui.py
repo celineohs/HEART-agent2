@@ -13,11 +13,11 @@ from interview_export import upload_interview_once
 from section_readiness import assess_section_readiness
 from section_timing import (
     ensure_section_clock,
-    format_time_hint,
     section_can_continue,
     section_chat_allowed,
     section_max_reached,
     section_min_met,
+    section_progress,
 )
 from ui_style import apply_global_styles
 
@@ -54,17 +54,23 @@ def _timer_phase(section: str) -> str:
 
 
 def _render_section_timer(section: str) -> None:
-    """Show time hints and rerun when min/max boundaries are crossed."""
+    """Show a light progress indicator and rerun when min/max boundaries are crossed."""
 
-    @st.fragment(run_every=timedelta(seconds=10))
+    @st.fragment(run_every=timedelta(seconds=5))
     def _tick() -> None:
         ensure_section_clock(section)
-        hint = format_time_hint(section)
-        if hint:
-            st.caption(hint)
-        elif section_max_reached(section):
-            st.warning(
-                "Time for this section is up. Please use **Continue** to move on."
+        if not section_max_reached(section):
+            st.progress(
+                section_progress(section),
+                text="This part of the interview",
+            )
+            if section_min_met(section):
+                st.caption(
+                    "When you feel ready, you can move on to the next part using **Continue** below."
+                )
+        else:
+            st.info(
+                "You can wrap up this part and move on using **Continue** below."
             )
 
         phase_key = f"_section_timer_phase_{section}"
@@ -190,15 +196,10 @@ def render_chat_page(
         ready = _update_section_readiness(section)
         can_continue = section_can_continue(section, content_ready=ready)
         st.divider()
-        if not can_continue:
-            if not ready:
-                st.caption(
-                    f"When the interviewer has enough detail for this part, **{next_label}** will unlock."
-                )
-            elif not section_max_reached(section):
-                st.caption(
-                    f"**{next_label}** will unlock once the minimum time for this section has passed."
-                )
+        if not can_continue and not ready and not section_max_reached(section):
+            st.caption(
+                f"When the interviewer has enough detail for this part, **{next_label}** will be available."
+            )
         if st.button(
             next_label,
             type="primary",
