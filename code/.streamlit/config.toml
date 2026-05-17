@@ -1,0 +1,3 @@
+[client]
+# Multipage nav in the sidebar flashes on switch_page; hide it entirely.
+showSidebarNavigation = false

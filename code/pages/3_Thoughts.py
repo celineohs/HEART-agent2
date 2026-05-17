@@ -6,6 +6,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+from ui_style import apply_global_styles
+
+apply_global_styles()
+
 from interview_ui import render_chat_page
 
 render_chat_page(

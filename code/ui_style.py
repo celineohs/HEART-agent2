@@ -15,9 +15,23 @@ def apply_global_styles() -> None:
     h3 { font-size: 1.35rem !important; }
     .stMarkdown, .stChatMessage { font-size: 1.08rem; }
     [data-testid="stChatInput"] textarea { font-size: 1.08rem !important; }
-    section[data-testid="stSidebar"] { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
+    section[data-testid="stSidebar"],
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarNav"],
+    [data-testid="stSidebarNav"] ul {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+    }
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
     button[kind="header"] { display: none !important; }
 </style>
         """,
