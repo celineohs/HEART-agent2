@@ -8,7 +8,13 @@ import streamlit as st
 
 from chat_client import get_api_key, run_turn, stream_turn
 from prompts import build_system
+from section_readiness import assess_section_readiness
 from ui_style import apply_global_styles
+
+_SECTION_NEXT: dict[str, tuple[str, str]] = {
+    "event": ("pages/2_Emotion.py", "emotion"),
+    "emotion": ("pages/3_Thoughts.py", "thoughts"),
+}
 
 
 def _require_intake() -> None:
@@ -18,6 +24,41 @@ def _require_intake() -> None:
         st.error("Please start from the **home** page and complete the background questions first.")
         st.page_link("app.py", label="→ Go to start")
         st.stop()
+
+
+def _section_start_key(section: str) -> str:
+    return f"_section_start_idx_{section}"
+
+
+def _section_messages(section: str) -> list:
+    start = st.session_state.get(_section_start_key(section), 0)
+    return st.session_state["messages"][start:]
+
+
+def _mark_next_section_start(next_section: str) -> None:
+    st.session_state[_section_start_key(next_section)] = len(
+        st.session_state["messages"]
+    )
+    st.session_state.pop(f"_section_ready_{next_section}", None)
+    st.session_state.pop(f"_readiness_msg_count_{next_section}", None)
+
+
+def _update_section_readiness(section: str) -> bool:
+    msgs = _section_messages(section)
+    count_key = f"_readiness_msg_count_{section}"
+    ready_key = f"_section_ready_{section}"
+    if st.session_state.get(count_key) == len(msgs) and ready_key in st.session_state:
+        return st.session_state[ready_key]
+
+    ready = assess_section_readiness(
+        section,
+        msgs,
+        brief_conflict=st.session_state["brief_conflict"],
+        relationship=st.session_state["relationship_type"],
+    )
+    st.session_state[count_key] = len(msgs)
+    st.session_state[ready_key] = ready
+    return ready
 
 
 def _bootstrap_event(system: str) -> None:
@@ -36,13 +77,16 @@ def _bootstrap_event(system: str) -> None:
         raise e
     st.session_state["messages"].append({"role": "assistant", "content": text})
     st.session_state["_event_seeded"] = True
+    if _section_start_key("event") not in st.session_state:
+        st.session_state[_section_start_key("event")] = 0
+    _update_section_readiness("event")
 
 
 def render_chat_page(
     *,
     section: str,
     headline: str,
-    blurb: str,
+    blurb: Optional[str] = None,
     next_page: Optional[str] = None,
     next_label: str = "Continue",
 ) -> None:
@@ -78,16 +122,37 @@ def render_chat_page(
         st.page_link("pages/1_Event.py", label="→ Go to first conversation")
         st.stop()
 
+    if section != "event" and _section_start_key(section) not in st.session_state:
+        st.session_state[_section_start_key(section)] = len(
+            st.session_state["messages"]
+        )
+
     st.title(headline)
-    st.markdown(blurb)
+    if blurb:
+        st.markdown(blurb)
 
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
     if next_page:
+        ready = _update_section_readiness(section)
         st.divider()
-        if st.button(next_label, type="primary", key=f"next_{section}"):
+        if not ready:
+            st.caption(
+                f"When the interviewer has enough detail for this part, **{next_label}** will unlock."
+            )
+        if st.button(
+            next_label,
+            type="primary",
+            key=f"next_{section}",
+            disabled=not ready,
+        ):
+            next_meta = _SECTION_NEXT.get(section)
+            if next_meta:
+                _mark_next_section_start(next_meta[1])
+            if section == "thoughts":
+                st.session_state["_interview_completed"] = True
             st.switch_page(next_page)
 
     if user_text := st.chat_input("Type your reply…"):
@@ -107,3 +172,6 @@ def render_chat_page(
         st.session_state["messages"].append(
             {"role": "assistant", "content": full or ""}
         )
+        if next_page:
+            _update_section_readiness(section)
+            st.rerun()
