@@ -13,8 +13,10 @@ from interview_export import upload_interview_once
 from section_timing import (
     SECTION_MIN_DURATION_SEC,
     ensure_section_clock,
+    format_mmss,
     section_can_continue,
     section_min_met,
+    section_remaining_continue_sec,
 )
 from ui_style import apply_global_styles
 
@@ -37,33 +39,12 @@ def _section_start_key(section: str) -> str:
     return f"_section_start_idx_{section}"
 
 
-def _section_messages(section: str) -> list:
-    start = st.session_state.get(_section_start_key(section), 0)
-    return st.session_state["messages"][start:]
-
-
 def _render_intake_summary() -> None:
     with st.expander("What you shared at the start", expanded=True):
         st.markdown("**(1) Brief description of the recent interpersonal conflict**")
         st.markdown(st.session_state["brief_conflict"])
         st.markdown("**(2) Relationship to the other person**")
         st.markdown(st.session_state["relationship_type"])
-
-
-def _rerun_when_min_time_met(section: str) -> None:
-    """Rerun the page when the 3-minute minimum elapses so Continue can unlock."""
-
-    @st.fragment(run_every=timedelta(seconds=10))
-    def _tick() -> None:
-        ensure_section_clock(section)
-        met = section_min_met(section)
-        phase_key = f"_section_min_phase_{section}"
-        prev = st.session_state.get(phase_key)
-        if prev is not None and not prev and met:
-            st.rerun()
-        st.session_state[phase_key] = met
-
-    _tick()
 
 
 def _interview_bottom():
@@ -77,6 +58,34 @@ def _continue_availability_caption(next_label: str) -> str:
         f"**{next_label}** is available **only after** at least **{mins} minutes** in this part. "
         f"**Please press {next_label} only after** you have shared enough in your answers."
     )
+
+
+def _render_continue_caption(section: str, next_label: str) -> None:
+    """Caption with a live countdown until Continue unlocks."""
+
+    @st.fragment(run_every=timedelta(seconds=1))
+    def _tick() -> None:
+        ensure_section_clock(section)
+        met = section_min_met(section)
+        phase_key = f"_section_min_phase_{section}"
+        prev = st.session_state.get(phase_key)
+        if prev is not None and not prev and met:
+            st.session_state[phase_key] = met
+            st.rerun()
+        st.session_state[phase_key] = met
+
+        hint_col, timer_col = st.columns([11, 1], vertical_alignment="center")
+        with hint_col:
+            st.caption(_continue_availability_caption(next_label))
+        with timer_col:
+            if not met:
+                st.markdown(
+                    f'<p style="margin:0;color:#888;font-size:0.85rem;text-align:right;">'
+                    f"{format_mmss(section_remaining_continue_sec(section))}</p>",
+                    unsafe_allow_html=True,
+                )
+
+    _tick()
 
 
 def _mark_next_section_start(next_section: str) -> None:
@@ -160,9 +169,6 @@ def render_chat_page(
 
     _render_intake_summary()
 
-    if next_page:
-        _rerun_when_min_time_met(section)
-
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
@@ -172,7 +178,7 @@ def render_chat_page(
     with _interview_bottom():
         user_text = st.chat_input("Type your reply…")
         if next_page:
-            st.caption(_continue_availability_caption(next_label))
+            _render_continue_caption(section, next_label)
             if st.button(
                 next_label,
                 type="primary",

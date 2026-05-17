@@ -31,3 +31,15 @@ def section_min_met(section: str) -> bool:
 
 def section_can_continue(section: str) -> bool:
     return section_min_met(section)
+
+
+def format_mmss(seconds: float) -> str:
+    total = max(0, int(seconds))
+    minutes, secs = divmod(total, 60)
+    return f"{minutes}:{secs:02d}"
+
+
+def section_remaining_continue_sec(section: str) -> int:
+    if section_min_met(section):
+        return 0
+    return max(0, int(SECTION_MIN_DURATION_SEC - section_elapsed_sec(section)))
