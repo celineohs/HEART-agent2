@@ -133,7 +133,10 @@ def _get_service_account_credentials(get_env) -> Tuple[Optional[object], Optiona
             )
 
     try:
-        return sa.Credentials.from_service_account_info(creds_dict), None
+        return (
+            sa.Credentials.from_service_account_info(creds_dict, scopes=_DRIVE_SCOPES),
+            None,
+        )
     except Exception as e:
         return None, f"서비스 계정 credentials 생성 실패: {e}"
 
