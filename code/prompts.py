@@ -2,7 +2,8 @@
 
 from probe_loader import (
     clarifying_probe_text,
-    descriptive_probe_text,
+    descriptive_probe_external_text,
+    descriptive_probe_internal_text,
     explanatory_probe_text,
     idiographic_probe_text,
 )
@@ -54,9 +55,9 @@ def _event_section() -> str:
 
 ---
 
-## Study probe definitions — Descriptive (protocol)
+## Study probe definitions — Descriptive, external only (protocol)
 
-{descriptive_probe_text()}
+{descriptive_probe_external_text()}
 
 ---
 
@@ -90,9 +91,9 @@ def _emotion_section() -> str:
 
 ---
 
-## Study probe definitions — Descriptive (protocol)
+## Study probe definitions — Descriptive, internal only (protocol)
 
-{descriptive_probe_text()}
+{descriptive_probe_internal_text()}
 
 ---
 
