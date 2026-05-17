@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Optional
 
 import streamlit as st
@@ -10,6 +11,14 @@ from chat_client import get_api_key, run_turn, stream_turn
 from prompts import build_system
 from interview_export import upload_interview_once
 from section_readiness import assess_section_readiness
+from section_timing import (
+    ensure_section_clock,
+    format_time_hint,
+    section_can_continue,
+    section_chat_allowed,
+    section_max_reached,
+    section_min_met,
+)
 from ui_style import apply_global_styles
 
 _SECTION_NEXT: dict[str, tuple[str, str]] = {
@@ -36,12 +45,48 @@ def _section_messages(section: str) -> list:
     return st.session_state["messages"][start:]
 
 
+def _timer_phase(section: str) -> str:
+    if section_max_reached(section):
+        return "max"
+    if section_min_met(section):
+        return "active"
+    return "before_min"
+
+
+def _render_section_timer(section: str) -> None:
+    """Show time hints and rerun when min/max boundaries are crossed."""
+
+    @st.fragment(run_every=timedelta(seconds=10))
+    def _tick() -> None:
+        ensure_section_clock(section)
+        hint = format_time_hint(section)
+        if hint:
+            st.caption(hint)
+        elif section_max_reached(section):
+            st.warning(
+                "Time for this section is up. Please use **Continue** to move on."
+            )
+
+        phase_key = f"_section_timer_phase_{section}"
+        phase = _timer_phase(section)
+        prev = st.session_state.get(phase_key)
+        if prev != phase:
+            st.session_state[phase_key] = phase
+            if prev is not None:
+                st.rerun()
+        else:
+            st.session_state[phase_key] = phase
+
+    _tick()
+
+
 def _mark_next_section_start(next_section: str) -> None:
     st.session_state[_section_start_key(next_section)] = len(
         st.session_state["messages"]
     )
     st.session_state.pop(f"_section_ready_{next_section}", None)
     st.session_state.pop(f"_readiness_msg_count_{next_section}", None)
+    st.session_state.pop(f"_section_timer_phase_{next_section}", None)
 
 
 def _update_section_readiness(section: str) -> bool:
@@ -129,9 +174,13 @@ def render_chat_page(
             st.session_state["messages"]
         )
 
+    ensure_section_clock(section)
+
     st.title(headline)
     if blurb:
         st.markdown(blurb)
+
+    _render_section_timer(section)
 
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
@@ -139,16 +188,22 @@ def render_chat_page(
 
     if next_page:
         ready = _update_section_readiness(section)
+        can_continue = section_can_continue(section, content_ready=ready)
         st.divider()
-        if not ready:
-            st.caption(
-                f"When the interviewer has enough detail for this part, **{next_label}** will unlock."
-            )
+        if not can_continue:
+            if not ready:
+                st.caption(
+                    f"When the interviewer has enough detail for this part, **{next_label}** will unlock."
+                )
+            elif not section_max_reached(section):
+                st.caption(
+                    f"**{next_label}** will unlock once the minimum time for this section has passed."
+                )
         if st.button(
             next_label,
             type="primary",
             key=f"next_{section}",
-            disabled=not ready,
+            disabled=not can_continue,
         ):
             next_meta = _SECTION_NEXT.get(section)
             if next_meta:
@@ -159,7 +214,9 @@ def render_chat_page(
                     upload_interview_once()
             st.switch_page(next_page)
 
-    if user_text := st.chat_input("Type your reply…"):
+    if not section_chat_allowed(section):
+        st.chat_input("Type your reply…", disabled=True)
+    elif user_text := st.chat_input("Type your reply…"):
         st.session_state["messages"].append({"role": "user", "content": user_text})
         with st.chat_message("user"):
             st.markdown(user_text)

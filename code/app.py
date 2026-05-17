@@ -8,6 +8,7 @@ st.set_page_config(
 )
 
 from interview_export import ensure_session_id
+from section_timing import SECTION_MAX_DURATION_SEC, SECTION_MIN_DURATION_SEC
 from ui_style import apply_global_styles
 
 apply_global_styles()
@@ -23,6 +24,10 @@ if "messages" not in st.session_state:
 st.title("HEART qualitative interview (pilot)")
 st.markdown(
     "Briefly tell us about **one recent interpersonal conflict** and **who the other person is** to you."
+)
+st.caption(
+    f"Each conversation part is about **{SECTION_MIN_DURATION_SEC // 60}–"
+    f"{SECTION_MAX_DURATION_SEC // 60} minutes**."
 )
 
 st.divider()
