@@ -63,19 +63,20 @@ def _update_section_readiness(section: str) -> bool:
 
 
 def _bootstrap_event(system: str) -> None:
-    seed = (
-        "[Study onboarding — begin the **Event** section in English.]\n\n"
+    """Start Event chat with intake context for the API only (not shown in the UI)."""
+    intake_turn = (
         "**(1) Brief description of the recent interpersonal conflict:**\n"
         f"{st.session_state['brief_conflict']}\n\n"
         "**(2) Relationship to the other person:**\n"
         f"{st.session_state['relationship_type']}"
     ).strip()
-    st.session_state["messages"].append({"role": "user", "content": seed})
     try:
-        text = run_turn(system=system, messages=st.session_state["messages"])
-    except Exception as e:
-        st.session_state["messages"].pop()
-        raise e
+        text = run_turn(
+            system=system,
+            messages=[{"role": "user", "content": intake_turn}],
+        )
+    except Exception:
+        raise
     st.session_state["messages"].append({"role": "assistant", "content": text})
     st.session_state["_event_seeded"] = True
     if _section_start_key("event") not in st.session_state:
