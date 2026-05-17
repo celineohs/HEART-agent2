@@ -10,7 +10,6 @@ import streamlit as st
 from chat_client import get_api_key, run_turn, stream_turn
 from prompts import build_system
 from interview_export import upload_interview_once
-from section_readiness import assess_section_readiness
 from section_timing import (
     SECTION_MIN_DURATION_SEC,
     ensure_section_clock,
@@ -75,8 +74,8 @@ def _interview_bottom():
 def _continue_availability_caption(next_label: str) -> str:
     mins = SECTION_MIN_DURATION_SEC // 60
     return (
-        f"**{next_label}** will be available after at least **{mins} minutes** in this part, "
-        "once the interviewer has gathered enough detail."
+        f"**{next_label}** is available **only after** at least **{mins} minutes** in this part. "
+        f"**Please press {next_label} only after** you have shared enough in your answers."
     )
 
 
@@ -84,27 +83,7 @@ def _mark_next_section_start(next_section: str) -> None:
     st.session_state[_section_start_key(next_section)] = len(
         st.session_state["messages"]
     )
-    st.session_state.pop(f"_section_ready_{next_section}", None)
-    st.session_state.pop(f"_readiness_msg_count_{next_section}", None)
     st.session_state.pop(f"_section_min_phase_{next_section}", None)
-
-
-def _update_section_readiness(section: str) -> bool:
-    msgs = _section_messages(section)
-    count_key = f"_readiness_msg_count_{section}"
-    ready_key = f"_section_ready_{section}"
-    if st.session_state.get(count_key) == len(msgs) and ready_key in st.session_state:
-        return st.session_state[ready_key]
-
-    ready = assess_section_readiness(
-        section,
-        msgs,
-        brief_conflict=st.session_state["brief_conflict"],
-        relationship=st.session_state["relationship_type"],
-    )
-    st.session_state[count_key] = len(msgs)
-    st.session_state[ready_key] = ready
-    return ready
 
 
 def _bootstrap_event(system: str) -> None:
@@ -126,7 +105,6 @@ def _bootstrap_event(system: str) -> None:
     st.session_state["_event_seeded"] = True
     if _section_start_key("event") not in st.session_state:
         st.session_state[_section_start_key("event")] = 0
-    _update_section_readiness("event")
 
 
 def render_chat_page(
@@ -189,10 +167,7 @@ def render_chat_page(
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    can_continue = False
-    if next_page:
-        ready = _update_section_readiness(section)
-        can_continue = section_can_continue(section, content_ready=ready)
+    can_continue = section_can_continue(section) if next_page else False
 
     with _interview_bottom():
         user_text = st.chat_input("Type your reply…")
@@ -232,5 +207,4 @@ def render_chat_page(
             {"role": "assistant", "content": full or ""}
         )
         if next_page:
-            _update_section_readiness(section)
             st.rerun()

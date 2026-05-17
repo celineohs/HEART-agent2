@@ -29,5 +29,5 @@ def section_min_met(section: str) -> bool:
     return section_elapsed_sec(section) >= SECTION_MIN_DURATION_SEC
 
 
-def section_can_continue(section: str, *, content_ready: bool) -> bool:
-    return content_ready and section_min_met(section)
+def section_can_continue(section: str) -> bool:
+    return section_min_met(section)
