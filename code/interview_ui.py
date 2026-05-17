@@ -67,6 +67,11 @@ def _rerun_when_min_time_met(section: str) -> None:
     _tick()
 
 
+def _interview_bottom():
+    """Pinned footer (st.bottom or st._bottom depending on Streamlit version)."""
+    return getattr(st, "bottom", st._bottom)
+
+
 def _continue_availability_caption(next_label: str) -> str:
     mins = SECTION_MIN_DURATION_SEC // 60
     return (
@@ -178,33 +183,38 @@ def render_chat_page(
     _render_intake_summary()
 
     if next_page:
-        st.caption(_continue_availability_caption(next_label))
         _rerun_when_min_time_met(section)
 
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
+    can_continue = False
     if next_page:
         ready = _update_section_readiness(section)
         can_continue = section_can_continue(section, content_ready=ready)
-        st.divider()
-        if st.button(
-            next_label,
-            type="primary",
-            key=f"next_{section}",
-            disabled=not can_continue,
-        ):
-            next_meta = _SECTION_NEXT.get(section)
-            if next_meta:
-                _mark_next_section_start(next_meta[1])
-            if section == "thoughts":
-                st.session_state["_interview_completed"] = True
-                with st.spinner("Saving your interview…"):
-                    upload_interview_once()
-            st.switch_page(next_page)
 
-    if user_text := st.chat_input("Type your reply…"):
+    with _interview_bottom():
+        user_text = st.chat_input("Type your reply…")
+        if next_page:
+            st.caption(_continue_availability_caption(next_label))
+            if st.button(
+                next_label,
+                type="primary",
+                key=f"next_{section}",
+                disabled=not can_continue,
+                use_container_width=True,
+            ):
+                next_meta = _SECTION_NEXT.get(section)
+                if next_meta:
+                    _mark_next_section_start(next_meta[1])
+                if section == "thoughts":
+                    st.session_state["_interview_completed"] = True
+                    with st.spinner("Saving your interview…"):
+                        upload_interview_once()
+                st.switch_page(next_page)
+
+    if user_text:
         st.session_state["messages"].append({"role": "user", "content": user_text})
         with st.chat_message("user"):
             st.markdown(user_text)
