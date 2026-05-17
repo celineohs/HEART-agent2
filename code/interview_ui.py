@@ -25,6 +25,22 @@ _SECTION_NEXT: dict[str, tuple[str, str]] = {
     "emotion": ("pages/3_Thoughts.py", "thoughts"),
 }
 
+# Sent to the API only (not stored in messages) when a section page opens.
+_SECTION_OPENING_USER: dict[str, str] = {
+    "emotion": """
+[Section transition — internal; the participant does not see this line.]
+The Event section is complete. Begin the **Emotion** section now in English.
+Ask exactly one question about how they felt during that same situation (type, quality, or strength of feeling).
+Do not re-ask event sequencing, the other person's perspective, beliefs, or ideals.
+""".strip(),
+    "thoughts": """
+[Section transition — internal; the participant does not see this line.]
+The Emotion section is complete. Begin the **Thoughts** section now in English.
+Ask exactly one question about what they believed or expected during that episode, or what an ideal interaction would have looked like to them.
+Do not re-ask event sequencing or emotion labeling unless one short phrase anchors to the scene.
+""".strip(),
+}
+
 
 def _require_intake() -> None:
     b = st.session_state.get("brief_conflict", "").strip()
@@ -37,6 +53,16 @@ def _require_intake() -> None:
 
 def _section_start_key(section: str) -> str:
     return f"_section_start_idx_{section}"
+
+
+def _section_seeded_key(section: str) -> str:
+    return f"_section_seeded_{section}"
+
+
+def _visible_messages(section: str) -> list:
+    """Messages shown in the UI for this section (prior sections hidden)."""
+    start = int(st.session_state.get(_section_start_key(section), 0))
+    return st.session_state["messages"][start:]
 
 
 def _render_intake_summary() -> None:
@@ -116,6 +142,19 @@ def _bootstrap_event(system: str) -> None:
         st.session_state[_section_start_key("event")] = 0
 
 
+def _bootstrap_section_opening(section: str, system: str) -> None:
+    """Open Emotion/Thoughts with one assistant turn; full prior history goes to the API only."""
+    transition = _SECTION_OPENING_USER[section]
+    api_messages = list(st.session_state["messages"])
+    api_messages.append({"role": "user", "content": transition})
+    try:
+        text = run_turn(system=system, messages=api_messages)
+    except Exception:
+        raise
+    st.session_state["messages"].append({"role": "assistant", "content": text})
+    st.session_state[_section_seeded_key(section)] = True
+
+
 def render_chat_page(
     *,
     section: str,
@@ -161,6 +200,17 @@ def render_chat_page(
             st.session_state["messages"]
         )
 
+    if (
+        section in _SECTION_OPENING_USER
+        and not st.session_state.get(_section_seeded_key(section))
+    ):
+        with st.spinner(f"Starting the {headline.lower()} section…"):
+            try:
+                _bootstrap_section_opening(section, system)
+            except Exception as e:
+                st.error(f"Could not reach the model: {e}")
+                st.stop()
+
     ensure_section_clock(section)
 
     st.title(headline)
@@ -169,7 +219,7 @@ def render_chat_page(
 
     _render_intake_summary()
 
-    for msg in st.session_state["messages"]:
+    for msg in _visible_messages(section):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
