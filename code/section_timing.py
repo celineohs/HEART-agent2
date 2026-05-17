@@ -1,12 +1,12 @@
-"""Per-section time bounds for Event, Emotion, and Thoughts chat pages."""
+"""Minimum time per interview section before Continue can unlock."""
 
 from __future__ import annotations
 
 import time
+
 import streamlit as st
 
 SECTION_MIN_DURATION_SEC = 3 * 60
-SECTION_MAX_DURATION_SEC = 5 * 60
 
 
 def _section_time_key(section: str) -> str:
@@ -29,25 +29,5 @@ def section_min_met(section: str) -> bool:
     return section_elapsed_sec(section) >= SECTION_MIN_DURATION_SEC
 
 
-def section_max_reached(section: str) -> bool:
-    return section_elapsed_sec(section) >= SECTION_MAX_DURATION_SEC
-
-
 def section_can_continue(section: str, *, content_ready: bool) -> bool:
-    if section_max_reached(section):
-        return True
     return content_ready and section_min_met(section)
-
-
-def section_chat_allowed(section: str) -> bool:
-    return not section_max_reached(section)
-
-
-def format_mmss(seconds: float) -> str:
-    total = max(0, int(seconds))
-    minutes, secs = divmod(total, 60)
-    return f"{minutes}:{secs:02d}"
-
-
-def section_remaining_max_sec(section: str) -> int:
-    return max(0, int(SECTION_MAX_DURATION_SEC - section_elapsed_sec(section)))

@@ -8,7 +8,7 @@ st.set_page_config(
 )
 
 from interview_export import ensure_session_id
-from section_timing import SECTION_MAX_DURATION_SEC, SECTION_MIN_DURATION_SEC
+from section_timing import SECTION_MIN_DURATION_SEC
 from ui_style import apply_global_styles
 
 apply_global_styles()
@@ -26,8 +26,8 @@ st.markdown(
     "Briefly tell us about **one recent interpersonal conflict** and **who the other person is** to you."
 )
 st.caption(
-    f"Each conversation part is about **{SECTION_MIN_DURATION_SEC // 60}–"
-    f"{SECTION_MAX_DURATION_SEC // 60} minutes**."
+    f"**Continue** becomes available after at least **{SECTION_MIN_DURATION_SEC // 60} minutes** "
+    "in each conversation part, once there is enough detail to move on."
 )
 
 st.divider()

@@ -12,13 +12,10 @@ from prompts import build_system
 from interview_export import upload_interview_once
 from section_readiness import assess_section_readiness
 from section_timing import (
+    SECTION_MIN_DURATION_SEC,
     ensure_section_clock,
-    format_mmss,
     section_can_continue,
-    section_chat_allowed,
-    section_max_reached,
     section_min_met,
-    section_remaining_max_sec,
 )
 from ui_style import apply_global_styles
 
@@ -54,43 +51,28 @@ def _render_intake_summary() -> None:
         st.markdown(st.session_state["relationship_type"])
 
 
-def _timer_phase(section: str) -> str:
-    if section_max_reached(section):
-        return "max"
-    if section_min_met(section):
-        return "active"
-    return "before_min"
+def _rerun_when_min_time_met(section: str) -> None:
+    """Rerun the page when the 3-minute minimum elapses so Continue can unlock."""
 
-
-def _render_section_timer(section: str) -> None:
-    """Show a light progress indicator and rerun when min/max boundaries are crossed."""
-
-    @st.fragment(run_every=timedelta(seconds=1))
+    @st.fragment(run_every=timedelta(seconds=10))
     def _tick() -> None:
         ensure_section_clock(section)
-        if not section_max_reached(section):
-            remaining = format_mmss(section_remaining_max_sec(section))
-            st.caption(f"**{remaining}** remaining in this part")
-            if section_min_met(section):
-                st.caption(
-                    "When you feel ready, you can move on to the next part using **Continue** below."
-                )
-        else:
-            st.info(
-                "You can wrap up this part and move on using **Continue** below."
-            )
-
-        phase_key = f"_section_timer_phase_{section}"
-        phase = _timer_phase(section)
+        met = section_min_met(section)
+        phase_key = f"_section_min_phase_{section}"
         prev = st.session_state.get(phase_key)
-        if prev != phase:
-            st.session_state[phase_key] = phase
-            if prev is not None:
-                st.rerun()
-        else:
-            st.session_state[phase_key] = phase
+        if prev is not None and not prev and met:
+            st.rerun()
+        st.session_state[phase_key] = met
 
     _tick()
+
+
+def _continue_availability_caption(next_label: str) -> str:
+    mins = SECTION_MIN_DURATION_SEC // 60
+    return (
+        f"**{next_label}** will be available after at least **{mins} minutes** in this part, "
+        "once the interviewer has gathered enough detail."
+    )
 
 
 def _mark_next_section_start(next_section: str) -> None:
@@ -99,7 +81,7 @@ def _mark_next_section_start(next_section: str) -> None:
     )
     st.session_state.pop(f"_section_ready_{next_section}", None)
     st.session_state.pop(f"_readiness_msg_count_{next_section}", None)
-    st.session_state.pop(f"_section_timer_phase_{next_section}", None)
+    st.session_state.pop(f"_section_min_phase_{next_section}", None)
 
 
 def _update_section_readiness(section: str) -> bool:
@@ -194,7 +176,10 @@ def render_chat_page(
         st.markdown(blurb)
 
     _render_intake_summary()
-    _render_section_timer(section)
+
+    if next_page:
+        st.caption(_continue_availability_caption(next_label))
+        _rerun_when_min_time_met(section)
 
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
@@ -204,10 +189,6 @@ def render_chat_page(
         ready = _update_section_readiness(section)
         can_continue = section_can_continue(section, content_ready=ready)
         st.divider()
-        if not can_continue and not ready and not section_max_reached(section):
-            st.caption(
-                f"When the interviewer has enough detail for this part, **{next_label}** will be available."
-            )
         if st.button(
             next_label,
             type="primary",
@@ -223,9 +204,7 @@ def render_chat_page(
                     upload_interview_once()
             st.switch_page(next_page)
 
-    if not section_chat_allowed(section):
-        st.chat_input("Type your reply…", disabled=True)
-    elif user_text := st.chat_input("Type your reply…"):
+    if user_text := st.chat_input("Type your reply…"):
         st.session_state["messages"].append({"role": "user", "content": user_text})
         with st.chat_message("user"):
             st.markdown(user_text)
