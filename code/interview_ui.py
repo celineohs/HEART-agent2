@@ -117,32 +117,25 @@ def _render_chat_area_header() -> None:
     )
 
 
-def _render_continue_caption(section: str, next_label: str) -> None:
-    """Caption with a live countdown until Continue unlocks."""
+def _render_page_chrome(
+    *,
+    section: str,
+    headline: str,
+    blurb: Optional[str],
+    next_label: str,
+) -> None:
+    st.title(headline)
+    if blurb:
+        st.markdown(blurb)
+    _render_intake_summary()
+    _render_section_chat_guidance(section, next_label)
+    _render_chat_area_header()
 
-    @st.fragment(run_every=timedelta(seconds=1))
-    def _tick() -> None:
-        ensure_section_clock(section)
-        met = section_min_met(section)
-        phase_key = f"_section_min_phase_{section}"
-        prev = st.session_state.get(phase_key)
-        if prev is not None and not prev and met:
-            st.session_state[phase_key] = met
-            st.rerun()
-        st.session_state[phase_key] = met
 
-        hint_col, timer_col = st.columns([11, 1], vertical_alignment="center")
-        with hint_col:
-            st.caption(_continue_availability_caption(section, next_label))
-        with timer_col:
-            if not met:
-                st.markdown(
-                    f'<p style="margin:0;color:#888;font-size:0.85rem;text-align:right;">'
-                    f"{format_mmss(section_remaining_continue_sec(section))}</p>",
-                    unsafe_allow_html=True,
-                )
-
-    _tick()
+def _render_chat_messages(section: str) -> None:
+    for msg in _visible_messages(section):
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
 
 
 def _mark_next_section_start(next_section: str) -> None:
@@ -160,13 +153,10 @@ def _bootstrap_event(system: str) -> None:
         "**(2) Relationship to the other person:**\n"
         f"{st.session_state['relationship_type']}"
     ).strip()
-    try:
-        text = run_turn(
-            system=system,
-            messages=[{"role": "user", "content": intake_turn}],
-        )
-    except Exception:
-        raise
+    text = run_turn(
+        system=system,
+        messages=[{"role": "user", "content": intake_turn}],
+    )
     st.session_state["messages"].append({"role": "assistant", "content": text})
     st.session_state["_event_seeded"] = True
     if _section_start_key("event") not in st.session_state:
@@ -178,12 +168,109 @@ def _bootstrap_section_opening(section: str, system: str) -> None:
     transition = _SECTION_OPENING_USER[section]
     api_messages = list(st.session_state["messages"])
     api_messages.append({"role": "user", "content": transition})
-    try:
-        text = run_turn(system=system, messages=api_messages)
-    except Exception:
-        raise
+    text = run_turn(system=system, messages=api_messages)
     st.session_state["messages"].append({"role": "assistant", "content": text})
     st.session_state[_section_seeded_key(section)] = True
+
+
+def _handle_continue(
+    *,
+    section: str,
+    next_page: str,
+) -> None:
+    next_meta = _SECTION_NEXT.get(section)
+    if next_meta:
+        _mark_next_section_start(next_meta[1])
+    if section == "thoughts":
+        st.session_state["_interview_completed"] = True
+        with st.spinner("Saving your interview…"):
+            upload_interview_once()
+    st.switch_page(next_page)
+
+
+def _handle_user_message(
+    user_text: str,
+    *,
+    section: str,
+    system: str,
+    has_next_page: bool,
+) -> None:
+    st.session_state["messages"].append({"role": "user", "content": user_text})
+    with st.chat_message("user"):
+        st.markdown(user_text)
+    with st.chat_message("assistant"):
+        try:
+            full = st.write_stream(
+                stream_turn(system=system, messages=st.session_state["messages"])
+            )
+        except Exception as e:
+            st.error(f"Could not reach the model: {e}")
+            st.session_state["messages"].pop()
+            st.stop()
+    st.session_state["messages"].append({"role": "assistant", "content": full or ""})
+    if has_next_page:
+        st.rerun()
+
+
+def _render_continue_controls(
+    *,
+    section: str,
+    next_page: str,
+    next_label: str,
+) -> None:
+    """Timer + Continue; isolated fragment so run_every does not drop the button."""
+
+    @st.fragment(run_every=timedelta(seconds=1))
+    def _controls() -> None:
+        ensure_section_clock(section)
+        can_continue = section_can_continue(section)
+        met = section_min_met(section)
+
+        hint_col, timer_col = st.columns([11, 1], vertical_alignment="center")
+        with hint_col:
+            st.caption(_continue_availability_caption(section, next_label))
+        with timer_col:
+            if not met:
+                st.markdown(
+                    f'<p style="margin:0;color:#888;font-size:0.85rem;text-align:right;">'
+                    f"{format_mmss(section_remaining_continue_sec(section))}</p>",
+                    unsafe_allow_html=True,
+                )
+        if st.button(
+            next_label,
+            type="primary",
+            key=f"next_{section}",
+            disabled=not can_continue,
+            use_container_width=True,
+        ):
+            _handle_continue(section=section, next_page=next_page)
+
+    _controls()
+
+
+def _render_interview_footer(
+    *,
+    section: str,
+    system: str,
+    next_page: Optional[str],
+    next_label: str,
+) -> None:
+    with _interview_bottom():
+        user_text = st.chat_input("Type your reply…", key=f"chat_input_{section}")
+        if next_page:
+            _render_continue_controls(
+                section=section,
+                next_page=next_page,
+                next_label=next_label,
+            )
+
+    if user_text:
+        _handle_user_message(
+            user_text,
+            section=section,
+            system=system,
+            has_next_page=bool(next_page),
+        )
 
 
 def render_chat_page(
@@ -211,16 +298,22 @@ def render_chat_page(
     )
 
     if section == "event" and not st.session_state.get("_event_seeded"):
-        with st.spinner("Starting the interview…"):
-            try:
-                _bootstrap_event(system)
-            except Exception as e:
-                st.error(f"Could not reach the model: {e}")
-                st.stop()
-    elif section != "event" and not st.session_state.get("_event_seeded"):
+        _render_page_chrome(
+            section=section, headline=headline, blurb=blurb, next_label=next_label
+        )
+        with st.chat_message("assistant"):
+            with st.spinner("Starting the interview…"):
+                try:
+                    _bootstrap_event(system)
+                except Exception as e:
+                    st.error(f"Could not reach the model: {e}")
+                    st.stop()
+        st.rerun()
+
+    if section != "event" and not st.session_state.get("_event_seeded"):
         st.warning(
             "This step works best after you’ve gone through the first conversation. "
-            "Use the link below if you landed here out of order."
+            "Use the links below if you landed here out of order."
         )
         st.page_link("app.py", label="→ Go to start")
         st.page_link("pages/1_Event.py", label="→ Go to first conversation")
@@ -235,66 +328,27 @@ def render_chat_page(
         section in _SECTION_OPENING_USER
         and not st.session_state.get(_section_seeded_key(section))
     ):
-        with st.spinner(f"Starting the {headline.lower()} section…"):
-            try:
-                _bootstrap_section_opening(section, system)
-            except Exception as e:
-                st.error(f"Could not reach the model: {e}")
-                st.stop()
+        _render_page_chrome(
+            section=section, headline=headline, blurb=blurb, next_label=next_label
+        )
+        with st.chat_message("assistant"):
+            with st.spinner(f"Starting the {headline.lower()} section…"):
+                try:
+                    _bootstrap_section_opening(section, system)
+                except Exception as e:
+                    st.error(f"Could not reach the model: {e}")
+                    st.stop()
+        st.rerun()
 
     ensure_section_clock(section)
 
-    st.title(headline)
-    if blurb:
-        st.markdown(blurb)
-
-    _render_intake_summary()
-
-    _render_section_chat_guidance(section, next_label)
-    _render_chat_area_header()
-
-    for msg in _visible_messages(section):
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    can_continue = section_can_continue(section) if next_page else False
-
-    with _interview_bottom():
-        user_text = st.chat_input("Type your reply…")
-        if next_page:
-            _render_continue_caption(section, next_label)
-            if st.button(
-                next_label,
-                type="primary",
-                key=f"next_{section}",
-                disabled=not can_continue,
-                use_container_width=True,
-            ):
-                next_meta = _SECTION_NEXT.get(section)
-                if next_meta:
-                    _mark_next_section_start(next_meta[1])
-                if section == "thoughts":
-                    st.session_state["_interview_completed"] = True
-                    with st.spinner("Saving your interview…"):
-                        upload_interview_once()
-                st.switch_page(next_page)
-
-    if user_text:
-        st.session_state["messages"].append({"role": "user", "content": user_text})
-        with st.chat_message("user"):
-            st.markdown(user_text)
-        assistant_box = st.chat_message("assistant")
-        with assistant_box:
-            try:
-                full = st.write_stream(
-                    stream_turn(system=system, messages=st.session_state["messages"])
-                )
-            except Exception as e:
-                st.error(f"Could not reach the model: {e}")
-                st.session_state["messages"].pop()
-                st.stop()
-        st.session_state["messages"].append(
-            {"role": "assistant", "content": full or ""}
-        )
-        if next_page:
-            st.rerun()
+    _render_page_chrome(
+        section=section, headline=headline, blurb=blurb, next_label=next_label
+    )
+    _render_chat_messages(section)
+    _render_interview_footer(
+        section=section,
+        system=system,
+        next_page=next_page,
+        next_label=next_label,
+    )
