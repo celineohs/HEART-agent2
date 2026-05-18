@@ -17,7 +17,11 @@ if not st.session_state.get("_interview_completed"):
     st.page_link("pages/3_Thoughts.py", label="→ Go to Thoughts")
     st.stop()
 
-if is_drive_configured() and not st.session_state.get("_interview_uploaded"):
+_needs_upload = is_drive_configured() and (
+    not st.session_state.get("_interview_uploaded")
+    or not st.session_state.get("_drive_upload_ok", True)
+)
+if _needs_upload:
     with st.spinner("Saving your interview…"):
         upload_interview_once()
 

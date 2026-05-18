@@ -25,7 +25,9 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-_DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.file"]
+# OAuth: files the app creates/opens. Service account: shared folder upload needs full Drive.
+_DRIVE_SCOPES_OAUTH = ["https://www.googleapis.com/auth/drive.file"]
+_DRIVE_SCOPES_SERVICE_ACCOUNT = ["https://www.googleapis.com/auth/drive"]
 
 
 def _http_error_detail(exc: BaseException) -> str:
@@ -92,7 +94,7 @@ def _get_oauth_credentials(get_env) -> Optional[object]:
         token_uri="https://oauth2.googleapis.com/token",
         client_id=client_id,
         client_secret=client_secret,
-        scopes=_DRIVE_SCOPES,
+        scopes=_DRIVE_SCOPES_OAUTH,
     )
 
 
@@ -134,7 +136,9 @@ def _get_service_account_credentials(get_env) -> Tuple[Optional[object], Optiona
 
     try:
         return (
-            sa.Credentials.from_service_account_info(creds_dict, scopes=_DRIVE_SCOPES),
+            sa.Credentials.from_service_account_info(
+                creds_dict, scopes=_DRIVE_SCOPES_SERVICE_ACCOUNT
+            ),
             None,
         )
     except Exception as e:
@@ -254,7 +258,12 @@ def upload_file_to_drive(file_path: str, get_env) -> tuple:
                     "폴더를 서비스 계정 이메일(…@….iam.gserviceaccount.com)에 편집자로 공유하세요."
                 )
             elif e.resp.status == 403:
-                detail += " — 서비스 계정에 폴더 쓰기 권한이 없을 수 있습니다."
+                detail += (
+                    " — 서비스 계정에 폴더 쓰기 권한이 없거나 Drive API가 비활성화됐을 수 있습니다. "
+                    "GCP에서 Drive API를 켜고, 폴더를 서비스 계정 이메일에 편집자로 공유하세요."
+                )
+            elif e.resp.status == 401:
+                detail += " — 서비스 계정 키가 잘못됐거나 GOOGLE_DRIVE_CREDENTIALS_JSON이 손상됐을 수 있습니다."
         msg = f"Google Drive 업로드 실패(Service Account): {detail}"
         logger.exception("Google Drive upload (Service Account) failed: %s", detail)
         return False, msg

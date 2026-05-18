@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import tempfile
 import uuid
@@ -12,6 +13,8 @@ from typing import Any, Optional
 import streamlit as st
 
 from gdrive_upload import upload_file_to_drive
+
+logger = logging.getLogger(__name__)
 
 SCHEMA_VERSION = 1
 
@@ -81,10 +84,12 @@ def ensure_session_id() -> None:
 
 
 def upload_interview_once() -> tuple[bool, str]:
-    """Upload interview JSON once per session. Returns (ok, message)."""
-    if st.session_state.get("_interview_uploaded"):
+    """Upload interview JSON once per session. Retries if the last attempt failed."""
+    if st.session_state.get("_interview_uploaded") and st.session_state.get(
+        "_drive_upload_ok", True
+    ):
         return (
-            bool(st.session_state.get("_drive_upload_ok", True)),
+            True,
             str(st.session_state.get("_drive_upload_message", "")),
         )
 
@@ -108,6 +113,8 @@ def upload_interview_once() -> tuple[bool, str]:
         st.session_state["_interview_uploaded"] = True
         st.session_state["_drive_upload_ok"] = ok
         st.session_state["_drive_upload_message"] = msg
+        if not ok:
+            logger.error("Interview Drive upload failed: %s", msg)
         return ok, msg
     finally:
         if os.path.isfile(tmp_path):
