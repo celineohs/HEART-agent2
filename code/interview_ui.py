@@ -90,12 +90,30 @@ def _render_section_chat_guidance(section: str, next_label: str) -> None:
     mins = section_min_duration_sec(section) // 60
     st.markdown(
         f"""
-**How this part works**
+<div class="heart-section-guidance">
+  <p class="heart-section-guidance__title">How this part works</p>
+  <ul class="heart-section-guidance__list">
+    <li>Submit each reply with the <strong>send button</strong> or by pressing
+        <strong>Enter</strong> in the box below. <strong>{next_label}</strong> moves you to the
+        next part; it becomes available after at least <strong>{mins} minutes</strong> here.</li>
+    <li>Please use the time in this part to have a <strong>full conversation</strong> with the
+        chatbot.</li>
+  </ul>
+</div>
+        """.strip(),
+        unsafe_allow_html=True,
+    )
 
-- Submit each reply with the **send button** or by pressing **Enter** in the box below.
-  **{next_label}** moves you to the next part; it becomes available after at least **{mins} minutes** here.
-- Please use the time in this part to have a **full conversation** with the chatbot.
-        """.strip()
+
+def _render_chat_area_header() -> None:
+    st.markdown(
+        """
+<div class="heart-chat-area-header">
+  <span class="heart-chat-area-header__label">Conversation</span>
+  <span class="heart-chat-area-header__line"></span>
+</div>
+        """.strip(),
+        unsafe_allow_html=True,
     )
 
 
@@ -233,6 +251,7 @@ def render_chat_page(
     _render_intake_summary()
 
     _render_section_chat_guidance(section, next_label)
+    _render_chat_area_header()
 
     for msg in _visible_messages(section):
         with st.chat_message(msg["role"]):
