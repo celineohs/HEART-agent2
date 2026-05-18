@@ -11,10 +11,10 @@ from chat_client import get_api_key, run_turn, stream_turn
 from prompts import build_system
 from interview_export import upload_interview_once
 from section_timing import (
-    SECTION_MIN_DURATION_SEC,
     ensure_section_clock,
     format_mmss,
     section_can_continue,
+    section_min_duration_sec,
     section_min_met,
     section_remaining_continue_sec,
 )
@@ -78,11 +78,24 @@ def _interview_bottom():
     return getattr(st, "bottom", st._bottom)
 
 
-def _continue_availability_caption(next_label: str) -> str:
-    mins = SECTION_MIN_DURATION_SEC // 60
+def _continue_availability_caption(section: str, next_label: str) -> str:
+    mins = section_min_duration_sec(section) // 60
     return (
         f"**{next_label}** is available after **at least {mins} minutes** in this part. "
         f"Please press {next_label} **only after you have shared enough in your answers.**"
+    )
+
+
+def _render_section_chat_guidance(section: str, next_label: str) -> None:
+    mins = section_min_duration_sec(section) // 60
+    st.markdown(
+        f"""
+**How this part works**
+
+- Submit each reply with the **send button** or by pressing **Enter** in the box below.
+  **{next_label}** moves you to the next part; it becomes available after at least **{mins} minutes** here.
+- Please use the time in this part to have a **full conversation** with the chatbot.
+        """.strip()
     )
 
 
@@ -102,7 +115,7 @@ def _render_continue_caption(section: str, next_label: str) -> None:
 
         hint_col, timer_col = st.columns([11, 1], vertical_alignment="center")
         with hint_col:
-            st.caption(_continue_availability_caption(next_label))
+            st.caption(_continue_availability_caption(section, next_label))
         with timer_col:
             if not met:
                 st.markdown(
@@ -218,6 +231,8 @@ def render_chat_page(
         st.markdown(blurb)
 
     _render_intake_summary()
+
+    _render_section_chat_guidance(section, next_label)
 
     for msg in _visible_messages(section):
         with st.chat_message(msg["role"]):

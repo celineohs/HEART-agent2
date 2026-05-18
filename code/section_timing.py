@@ -6,7 +6,15 @@ import time
 
 import streamlit as st
 
-SECTION_MIN_DURATION_SEC = 3 * 60
+SECTION_MIN_DURATION_SEC: dict[str, int] = {
+    "event": 5 * 60,
+    "emotion": 3 * 60,
+    "thoughts": 5 * 60,
+}
+
+
+def section_min_duration_sec(section: str) -> int:
+    return SECTION_MIN_DURATION_SEC.get(section, 3 * 60)
 
 
 def _section_time_key(section: str) -> str:
@@ -26,7 +34,7 @@ def section_elapsed_sec(section: str) -> float:
 
 
 def section_min_met(section: str) -> bool:
-    return section_elapsed_sec(section) >= SECTION_MIN_DURATION_SEC
+    return section_elapsed_sec(section) >= section_min_duration_sec(section)
 
 
 def section_can_continue(section: str) -> bool:
@@ -42,4 +50,4 @@ def format_mmss(seconds: float) -> str:
 def section_remaining_continue_sec(section: str) -> int:
     if section_min_met(section):
         return 0
-    return max(0, int(SECTION_MIN_DURATION_SEC - section_elapsed_sec(section)))
+    return max(0, int(section_min_duration_sec(section) - section_elapsed_sec(section)))
