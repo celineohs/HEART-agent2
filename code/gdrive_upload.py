@@ -9,8 +9,8 @@ Google Drive 업로드 유틸 (Study1 대화 로그용).
   - GOOGLE_DRIVE_OAUTH_CLIENT_SECRET
   - GOOGLE_DRIVE_OAUTH_REFRESH_TOKEN
 
-- Service Account (Shared drives 필요할 수 있음):
-  - GOOGLE_DRIVE_FOLDER_ID
+- Service Account (Workspace Shared Drive 폴더만 가능 — 개인 My Drive 불가):
+  - GOOGLE_DRIVE_FOLDER_ID  (Shared Drive 안 폴더 id)
   - GOOGLE_DRIVE_CREDENTIALS_JSON
 
 get_env(key)는 st.secrets / os.getenv 를 쓰는 앱의 _get_env 함수를 넘기면 됨.
@@ -46,6 +46,34 @@ def _http_error_detail(exc: BaseException) -> str:
     except Exception:
         pass
     return str(exc)
+
+
+def _is_sa_storage_quota_error(exc: BaseException, detail: str) -> bool:
+    text = detail.lower()
+    if "storage quota" in text or "do not have storage quota" in text:
+        return True
+    try:
+        from googleapiclient.errors import HttpError
+
+        if isinstance(exc, HttpError):
+            body = json.loads(exc.content.decode("utf-8", errors="replace"))
+            for item in body.get("error", {}).get("errors", []):
+                if item.get("reason") == "storageQuotaExceeded":
+                    return True
+    except Exception:
+        pass
+    return False
+
+
+def _service_account_http_hint(exc: BaseException, detail: str) -> str:
+    if _is_sa_storage_quota_error(exc, detail):
+        return (
+            " — 서비스 계정은 개인 Google Drive(My Drive) 폴더에 파일을 넣을 수 없습니다. "
+            "Streamlit secrets에 OAuth(CLIENT_ID, CLIENT_SECRET, REFRESH_TOKEN)를 설정하거나, "
+            "Google Workspace Shared Drive 안의 폴더 id를 GOOGLE_DRIVE_FOLDER_ID로 쓰세요. "
+            "로컬에서 OAuth refresh token 발급: python generate_drive_refresh_token.py"
+        )
+    return ""
 
 
 def _drive_upload_with_retry(create_callable, max_attempts: int = 3):
@@ -258,9 +286,10 @@ def upload_file_to_drive(file_path: str, get_env) -> tuple:
                     "폴더를 서비스 계정 이메일(…@….iam.gserviceaccount.com)에 편집자로 공유하세요."
                 )
             elif e.resp.status == 403:
-                detail += (
+                detail += _service_account_http_hint(e, detail) or (
                     " — 서비스 계정에 폴더 쓰기 권한이 없거나 Drive API가 비활성화됐을 수 있습니다. "
-                    "GCP에서 Drive API를 켜고, 폴더를 서비스 계정 이메일에 편집자로 공유하세요."
+                    "Shared Drive 폴더인지 확인하고, GCP에서 Drive API를 켠 뒤 "
+                    "서비스 계정 이메일(…@….iam.gserviceaccount.com)을 Shared Drive 멤버로 추가하세요."
                 )
             elif e.resp.status == 401:
                 detail += " — 서비스 계정 키가 잘못됐거나 GOOGLE_DRIVE_CREDENTIALS_JSON이 손상됐을 수 있습니다."
