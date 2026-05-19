@@ -3,7 +3,7 @@ import re
 import streamlit as st
 
 st.set_page_config(
-    page_title="HEART · Intake",
+    page_title="LLM-based Interview about Recent Interpersonal Conflict",
     page_icon="💬",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -17,13 +17,12 @@ ensure_session_id()
 
 # Minimum response length so “continue” only works with real answers (not one word / whitespace).
 INTAKE_MIN_LEN_Q1 = 40
-INTAKE_MIN_LEN_Q2 = 8
 PROLIFIC_ID_RE = re.compile(r"^[A-Za-z0-9]{20,32}$")
 
 if "messages" not in st.session_state:
     st.session_state["messages"] = []
 
-st.title("HEART qualitative interview (pilot)")
+st.title("LLM-based Interview about Recent Interpersonal Conflict")
 st.markdown(
     "Please continue **only if** you can describe **one recent interpersonal conflict** "
     "where **the other person's perspective, intentions, or feelings were hard for you to understand**—"
@@ -46,10 +45,7 @@ with st.form("intake_form"):
         "perspective or intentions were not clear to you.",
         height=160,
         value=st.session_state.get("brief_conflict", ""),
-        placeholder=(
-            "Only if this applies: a short factual description in your own words "
-            "(what happened and what felt unclear about them)."
-        ),
+        placeholder="A short factual description in your own words.",
     )
     q2 = st.text_area(
         "(2) What is your relationship to the other person?",
@@ -73,10 +69,8 @@ with st.form("intake_form"):
             problems.append(
                 f"Please write a bit more for **(1)** (at least {INTAKE_MIN_LEN_Q1} characters)."
             )
-        if len(t2) < INTAKE_MIN_LEN_Q2:
-            problems.append(
-                f"Please write a bit more for **(2)** (at least {INTAKE_MIN_LEN_Q2} characters)."
-            )
+        if not t2:
+            problems.append("Please answer **(2)**.")
         if problems:
             for p in problems:
                 st.error(p)
