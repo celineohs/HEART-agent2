@@ -32,15 +32,15 @@ _SECTION_OPENING_USER: dict[str, str] = {
     "emotion": """
 [Section transition — internal; the participant does not see this line.]
 The Event section is complete. Begin the **Emotion** section now in English.
-Ask exactly one short question about how they felt during that same situation (type, quality, or strength of feeling).
-Keep the reply brief (one short lead-in sentence at most). Do not recap the event.
+Ask exactly one question about how they felt during that same situation (type, quality, or strength of feeling).
+Keep the reply moderate (a brief lead-in is fine). Do not recap the event at length.
 Do not re-ask event sequencing, the other person's perspective, beliefs, or ideals.
 """.strip(),
     "thoughts": """
 [Section transition — internal; the participant does not see this line.]
 The Emotion section is complete. Begin the **Thoughts** section now in English.
-Ask exactly one short question about what they believed or expected during that episode, or what an ideal interaction would have looked like to them.
-Keep the reply brief (one short lead-in sentence at most). Do not recap prior sections.
+Ask exactly one question about what they believed or expected during that episode, or what an ideal interaction would have looked like to them.
+Keep the reply moderate (a brief lead-in is fine). Do not recap prior sections at length.
 Do not re-ask event sequencing or emotion labeling unless one short phrase anchors to the scene.
 """.strip(),
 }
