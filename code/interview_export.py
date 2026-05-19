@@ -13,10 +13,15 @@ from typing import Any, Optional
 import streamlit as st
 
 from gdrive_upload import upload_file_to_drive
+from section_timing import (
+    build_timing_record,
+    finalize_section_duration,
+    mark_interview_complete,
+)
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def get_env(key: str, default: Optional[str] = None) -> str:
@@ -64,10 +69,12 @@ def build_interview_record() -> dict[str, Any]:
             str(uuid.uuid4()),
         ),
         "intake": {
+            "prolific_id": st.session_state.get("prolific_id", ""),
             "brief_conflict": st.session_state.get("brief_conflict", ""),
             "relationship_type": st.session_state.get("relationship_type", ""),
         },
         "section_boundaries": boundaries,
+        "timing": build_timing_record(),
         "messages": list(st.session_state.get("messages", [])),
     }
 
@@ -94,6 +101,9 @@ def upload_interview_once() -> tuple[bool, str]:
         )
 
     ensure_session_id()
+    if st.session_state.get("_interview_completed"):
+        finalize_section_duration("thoughts")
+        mark_interview_complete()
     record = build_interview_record()
     filename = _export_filename()
 

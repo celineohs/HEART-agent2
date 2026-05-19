@@ -39,7 +39,7 @@ def run_turn(
     system: str,
     messages: list[dict[str, Any]],
     model: Optional[str] = None,
-    max_tokens: int = 2048,
+    max_tokens: int = 512,
 ) -> str:
     """Single non-streaming completion; returns assistant text."""
     client = get_client()
@@ -62,7 +62,7 @@ def stream_turn(
     system: str,
     messages: list[dict[str, Any]],
     model: Optional[str] = None,
-    max_tokens: int = 2048,
+    max_tokens: int = 512,
 ):
     """Yield text chunks for st.write_stream."""
     client = get_client()

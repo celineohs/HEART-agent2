@@ -12,7 +12,9 @@ from prompts import build_system
 from interview_export import upload_interview_once
 from section_timing import (
     ensure_section_clock,
+    finalize_section_duration,
     format_mmss,
+    mark_interview_complete,
     section_can_continue,
     section_min_duration_sec,
     section_min_met,
@@ -30,22 +32,25 @@ _SECTION_OPENING_USER: dict[str, str] = {
     "emotion": """
 [Section transition — internal; the participant does not see this line.]
 The Event section is complete. Begin the **Emotion** section now in English.
-Ask exactly one question about how they felt during that same situation (type, quality, or strength of feeling).
+Ask exactly one short question about how they felt during that same situation (type, quality, or strength of feeling).
+Keep the reply brief (one short lead-in sentence at most). Do not recap the event.
 Do not re-ask event sequencing, the other person's perspective, beliefs, or ideals.
 """.strip(),
     "thoughts": """
 [Section transition — internal; the participant does not see this line.]
 The Emotion section is complete. Begin the **Thoughts** section now in English.
-Ask exactly one question about what they believed or expected during that episode, or what an ideal interaction would have looked like to them.
+Ask exactly one short question about what they believed or expected during that episode, or what an ideal interaction would have looked like to them.
+Keep the reply brief (one short lead-in sentence at most). Do not recap prior sections.
 Do not re-ask event sequencing or emotion labeling unless one short phrase anchors to the scene.
 """.strip(),
 }
 
 
 def _require_intake() -> None:
+    p = st.session_state.get("prolific_id", "").strip()
     b = st.session_state.get("brief_conflict", "").strip()
     r = st.session_state.get("relationship_type", "").strip()
-    if not b or not r:
+    if not p or not b or not r:
         st.error("Please start from the **home** page and complete the background questions first.")
         st.page_link("app.py", label="→ Go to start")
         st.stop()
@@ -67,6 +72,8 @@ def _visible_messages(section: str) -> list:
 
 def _render_intake_summary() -> None:
     with st.expander("What you shared at the start", expanded=True):
+        st.markdown("**Prolific ID**")
+        st.markdown(st.session_state.get("prolific_id", ""))
         st.markdown("**(1) Brief description of the recent interpersonal conflict**")
         st.markdown(st.session_state["brief_conflict"])
         st.markdown("**(2) Relationship to the other person**")
@@ -178,6 +185,9 @@ def _handle_continue(
     section: str,
     next_page: str,
 ) -> None:
+    finalize_section_duration(section)
+    if section == "thoughts":
+        mark_interview_complete()
     next_meta = _SECTION_NEXT.get(section)
     if next_meta:
         _mark_next_section_start(next_meta[1])
